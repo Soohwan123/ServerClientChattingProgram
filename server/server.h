@@ -21,7 +21,7 @@ extern client_t *clients[MAX_CLIENTS];
 extern pthread_mutex_t clients_mutex;
 
 void start_server();
-void *handle_client(void *arg, int core_number);
+void *handle_client(void *arg);
 void broadcast_message(char *message, int sender_socket);
 
 #endif
