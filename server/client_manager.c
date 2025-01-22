@@ -8,15 +8,24 @@
 #include <sys/sendfile.h> //sendfile 함수
 #include "server.h"
 #include <sched.h>
+#include <netinet/tcp.h>
+#include <fcntl.h>
 
+typedef struct {
+    client_t *client;     // 클라이언트 정보
+    int core_number;      // 할당된 코어 번호
+} thread_args_t;
 
 void handle_file_upload(int client_socket, const char *filename);
 void handle_file_download(int client_socket, const char *filename);
 
 // 클라이언트 요청을 처리하는 스레드 함수
-void *handle_client(void *arg, int core_number) {
+void *handle_client(void *arg) {
+    	thread_args_t *args = (thread_args_t *)arg; // 전달된 인자를 구조체로 캐스팅
+    	client_t *client = args->client;           // 클라이언트 정보 추출
+    	int core_number = args->core_number;       // 코어 번호 추출
 	char buffer[BUFFER_SIZE];
-	client_t *client = (client_t*) arg; //인자로 받은 클라이언트 정보
+	free(args); // 동적으로 할당된 구조체 메모리 해제
 	
 	printf("New client connected : %d\n", client->socket);
 	
@@ -28,7 +37,7 @@ void *handle_client(void *arg, int core_number) {
 	// Low Latency 최적화 CPU 고정
 	cpu_set_t cpuset;
 	CPU_ZERO(&cpuset);
-	CPU_SET(core_number, &cpuset); // 2번코어에 스레드 고정 (캐시사용 극대화, 컨텍스 스위칭 감소
+	CPU_SET(core_number, &cpuset); // 동적으로 지정된 코어 번호
 	pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
 
 
@@ -58,7 +67,6 @@ void *handle_client(void *arg, int core_number) {
 			broadcast_message(buffer, client->socket);
 		}
 	}
-
 
 	return NULL;
 }
