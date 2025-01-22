@@ -12,6 +12,8 @@ void start_server();
 client_t *clients[MAX_CLIENTS] = {0};
 pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+extern int core_number = 1;
+
 int main() {
 	start_server();
 	return 0;
@@ -51,6 +53,17 @@ void start_server(){
 
 	printf("Server is running on port %d\n", PORT);
 
+	//뮤텍스로 코어 경쟁상태 방지
+	pthread_mutex_t core_mutex = PTHREAD_MUTEX_INITIALIZER;
+	
+	pthread_mutex_lock(&core_mutex);
+	if (core_number < 4) {
+	    core_number++;
+	} else {
+	    core_number = 1;
+	}
+	pthread_mutex_unlock(&core_mutex);
+	
 	while(1) {
 		new_socket = accept(server_socket, (struct sockaddr* )&client_addr, &client_len);
 		if(new_socket < 0) {
@@ -64,7 +77,11 @@ void start_server(){
 		new_client->address = client_addr;
 
 		pthread_t tid;			//스레드 ID 
-		pthread_create(&tid, NULL, handle_client, (void *) new_client); // 클라이언트 요청 처리 스레드 생성 (앞으로 여기서 계속 처리한다.
+		thread_args_t *args = (thread_args_t *)malloc(sizeof(thread_args_t));
+		args->client = new_client;
+		args->core_number = core_number; // 동적으로 코어 번호 전달
+		
+		pthread_create(&tid, NULL, handle_client, (void *)args);// 클라이언트 요청 처리 스레드 생성 (앞으로 여기서 계속 처리한다.
 	
 		// 스레드가 종료되면 리소스 자동으로 해제.
 		pthread_detach(tid);
