@@ -16,6 +16,11 @@ typedef struct {
 	char username[32];
 }client_t;
 
+typedef struct {
+    client_t *client;     // 클라이언트 정보
+    int core_number;      // 할당된 코어 번호
+} thread_args_t;
+
 
 extern client_t *clients[MAX_CLIENTS];
 extern pthread_mutex_t clients_mutex;
