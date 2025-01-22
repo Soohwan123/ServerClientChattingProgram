@@ -12,7 +12,7 @@ void start_server();
 client_t *clients[MAX_CLIENTS] = {0};
 pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-extern int core_number = 1;
+core_number = 1;
 
 int main() {
 	start_server();
