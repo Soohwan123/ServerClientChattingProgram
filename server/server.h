@@ -6,6 +6,7 @@
 
 #define PORT 8080
 #define BUFFER_SIZE 1024
+#define FILE_BUFFER_SIZE 4096
 #define MAX_CLIENTS 500
 
 // 클라이언트 정보 구조체
@@ -20,7 +21,7 @@ extern client_t *clients[MAX_CLIENTS];
 extern pthread_mutex_t clients_mutex;
 
 void start_server();
-void *handle_client(void *arg);
+void *handle_client(void *arg, int core_number);
 void broadcast_message(char *message, int sender_socket);
 
 #endif
