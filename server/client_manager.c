@@ -11,10 +11,6 @@
 #include <netinet/tcp.h>
 #include <fcntl.h>
 
-typedef struct {
-    client_t *client;     // 클라이언트 정보
-    int core_number;      // 할당된 코어 번호
-} thread_args_t;
 
 void handle_file_upload(int client_socket, const char *filename);
 void handle_file_download(int client_socket, const char *filename);
