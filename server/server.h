@@ -24,6 +24,7 @@ typedef struct {
 
 extern client_t *clients[MAX_CLIENTS];
 extern pthread_mutex_t clients_mutex;
+extern int core_number;
 
 void start_server();
 void *handle_client(void *arg);
