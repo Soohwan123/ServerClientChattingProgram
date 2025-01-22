@@ -1,15 +1,14 @@
-#include <netinet/in.h>
-#include <sched.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/stat.h> //파일 크기확인
-#include <sys/sendfile.h> //sendfile 함수
-#include "server.h"
-#include <sched.h>
-#include <netinet/tcp.h>
-#include <fcntl.h>
+#include <sched.h>         // CPU affinity 설정
+#include <unistd.h>        // POSIX API
+#include <netinet/in.h>    // sockaddr_in
+#include <netinet/tcp.h>   // TCP_NODELAY
+#include <stdio.h>         // 입출력
+#include <stdlib.h>        // 동적 메모리 할당
+#include <string.h>        // 문자열 처리
+#include <sys/stat.h>      // 파일 상태
+#include <sys/sendfile.h>  // sendfile 함수
+#include <fcntl.h>         // 파일 제어
+#include "server.h"        // 서버 정의
 
 
 void handle_file_upload(int client_socket, const char *filename);
