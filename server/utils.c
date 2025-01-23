@@ -1,3 +1,4 @@
+#include <pthread.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -68,6 +69,7 @@ void broadcast_message(char *message, int sender_socket) {
 
 // 클라이언트 추가 함수
 void add_client(int fd, struct sockaddr_in client_addr) {
+    pthread_mutex_lock(&clients_mutex);	
     if (find_client_by_fd(fd)) {                    // **수정**: 중복 확인 추가
         printf("Warning: Client %d already exists in clients array\n", fd);
         return;
@@ -83,10 +85,14 @@ void add_client(int fd, struct sockaddr_in client_addr) {
         }
     }
     printf("Error: No available slot for client %d\n", fd);
+
+    pthread_mutex_unlock(&clients_mutex);	
 }
 
 // 클라이언트 제거 함수
 void remove_client(int fd) {
+
+    pthread_mutex_lock(&clients_mutex);	
     for (int i = 0; i < MAX_CLIENTS; i++) {
         if (clients[i] && clients[i]->socket == fd) {
             close(clients[i]->socket);              // 소켓 닫기
@@ -96,6 +102,8 @@ void remove_client(int fd) {
             return;
         }
     }
+
+    pthread_mutex_unlock(&clients_mutex);	
 }
 
 // 클라이언트 찾기 함수
