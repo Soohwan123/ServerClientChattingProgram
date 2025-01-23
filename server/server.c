@@ -18,6 +18,9 @@ void set_nonblocking(int fd);                        // 비차단 소켓 설정 
 void handle_file_upload(int client_socket, const char *filename); // 파일 업로드 처리
 void handle_file_download(int client_socket, const char *filename); // 파일 다운로드 처리
 void broadcast_message(char *message, int sender_socket);          // 메시지 브로드캐스트
+void add_client(int fd, struct sockaddr_in client_addr);    // 클라이언트 추가
+void remove_client(int fd);					//클라이언트 제거
+client_t* find_client_by_fd(int fd) ;                         //클라이언트 찾기
 
 client_t *clients[MAX_CLIENTS] = {0};                // 클라이언트 배열 초기화
 pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER; // 클라이언트 배열 보호 뮤텍스
@@ -103,6 +106,33 @@ void broadcast_message(char *message, int sender_socket) {
     pthread_mutex_unlock(&clients_mutex); // 뮤텍스 잠금 해제
 }
 
+void add_client(int fd, struct sockaddr_in client_addr) {
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (clients[i] == NULL) {
+            clients[i] = malloc(sizeof(client_t));
+            clients[i]->socket = fd;
+            clients[i]->address = client_addr;
+            clients[i]->index = i;  // 배열 인덱스 저장
+            printf("Client %d added to clients array at index %d\n", fd, i);
+            return;
+        }
+    }
+    printf("Error: No available slot for client %d\n", fd);
+}
+
+void remove_client(int fd) {
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (clients[i] && clients[i]->socket == fd) {
+            close(clients[i]->socket); // 소켓 닫기
+            free(clients[i]);          // 메모리 해제
+            clients[i] = NULL;         // 슬롯 초기화
+            printf("Client fd %d removed from clients array\n", fd);
+            return;
+        }
+    }
+}
+
+//id 로 클라이언트 찾기
 client_t* find_client_by_fd(int fd) {
     for (int i = 0; i < MAX_CLIENTS; i++) {
         if (clients[i] && clients[i]->socket == fd) {
@@ -188,20 +218,9 @@ void start_server() {
                 }
 
                 printf("New client connected: %d\n", new_socket);
-
-		// 새 클라이언트 연결 처리
-		for (int i = 0; i < MAX_CLIENTS; i++) {
-		    if (clients[i] == NULL) {
-		        clients[i] = malloc(sizeof(client_t));
-		        clients[i]->socket = new_socket;
-		        clients[i]->address = client_addr;
-		        printf("Client %d added to clients array at index %d\n", new_socket, i);
-		        break;
-		    }
-		}
-
                 // 클라이언트 소켓 비차단 설정
                 set_nonblocking(new_socket);
+		add_client(new_socket, client_addr); // 클라이언트 추가
 
                 // TCP_NODELAY 설정 (Low Latency)
                 int flag = 1;
@@ -243,16 +262,9 @@ void start_server() {
                 if (bytes_read <= 0) {
                     // 클라이언트 종료
                     printf("Client disconnected: %d\n", client_fd);
-		    // 클라이언트 종료 처리
-		    for (int i = 0; i < MAX_CLIENTS; i++) {
-			    if (clients[i] && clients[i]->socket == client_fd) {
-			        free(clients[i]);        // 메모리 해제
-			        clients[i] = NULL;       // 슬롯 초기화
-			        break;
-			    }
-			}
-                    close(client_fd);             // 소켓 닫기
+		    remove_client(client_fd); // 클라이언트 제거
                     epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL); // epoll에서 제거
+		    close(client_fd);             // 소켓 닫기
                 } else {
                     buffer[bytes_read] = '\0';    // 문자열 종료
                     printf("Client %d sent: %s\n", client_fd, buffer);
