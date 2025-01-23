@@ -1,3 +1,8 @@
+/* 멀티스레드 아키텍쳐에서 쓰이는 파일. epoll 에선 더이상 쓰이지 않음
+ *
+ *
+ *
+ * */
 #include <sched.h>         // CPU affinity 설정
 #include <unistd.h>        // POSIX API
 #include <netinet/in.h>    // sockaddr_in

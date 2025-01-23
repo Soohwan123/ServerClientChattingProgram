@@ -121,7 +121,7 @@ void start_server() {
 		   int flag = 1;
 		   setsockopt(new_socket, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int)); // Nagle 알고리즘 비활성화
 				
-		   event.events = EPOLLIN | EPOLLET; // 입력 이벤트 및 엣지 트리거 설정
+		   event.events = EPOLLIN;// | EPOLLET; // 입력 이벤트 및 엣지 트리거 설정
 		   event.data.fd = new_socket;
 		   if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, new_socket, &event) == -1) {
 		      perror("epoll_ctl add client failed"); // epoll 제어 실패 시 로그 출력
@@ -137,53 +137,52 @@ void start_server() {
 		      printf("Error: Client fd %d not in clients array\n", client_fd);
 		      remove_client(client_fd); // 클라이언트 목록에서 제거
 	              continue; // 다음 이벤트 처리로 넘어감
-		}
+	       	   }
 		
-		int bytes_read;
-		while ((bytes_read = read(client_fd, buffer, sizeof(buffer))) > 0) {
-		   buffer[bytes_read] = '\0';
-		   printf("Client %d sent: %s\n", client_fd, buffer);
+		   int bytes_read;
+		   while ((bytes_read = read(client_fd, buffer, sizeof(buffer))) > 0) {
+		      buffer[bytes_read] = '\0';
+		      printf("Client %d sent: %s\n", client_fd, buffer);
 
-		   // HTTP 요청 처리
-		   if (strncmp(buffer, "GET / HTTP/1.1", 14) == 0) {
-		      const char *response = "HTTP/1.1 200 OK\r\nContent-Length: 13\r\n\r\nConnection Clear!";
-		      send(client_fd, response, strlen(response), 0); // HTTP 응답 전송
-		   } else if (strncmp(buffer, "UPLOAD:", 7) == 0) {
-		      handle_file_upload(client_fd, buffer + 7); // 파일 업로드 처리
-		   } else if (strncmp(buffer, "DOWNLOAD:", 9) == 0) {
-		      handle_file_download(client_fd, buffer + 9); // 파일 다운로드 처리
-		   } else {
-		      broadcast_message(buffer, client_fd); // 메시지 브로드캐스트
+		      // HTTP 요청 처리
+		      if (strncmp(buffer, "GET / HTTP/1.1", 14) == 0) {
+		         const char *response = "HTTP/1.1 200 OK\r\nContent-Length: 13\r\n\r\nConnection Clear!";
+		         send(client_fd, response, strlen(response), 0); // HTTP 응답 전송
+		      } else if (strncmp(buffer, "UPLOAD:", 7) == 0) {
+		         handle_file_upload(client_fd, buffer + 7); // 파일 업로드 처리
+		      } else if (strncmp(buffer, "DOWNLOAD:", 9) == 0) {
+		         handle_file_download(client_fd, buffer + 9); // 파일 다운로드 처리
+		      } else {
+		         broadcast_message(buffer, client_fd); // 메시지 브로드캐스트
+		      }
+		      memset(buffer, 0, BUFFER_SIZE); // 버퍼 초기화
 		   }
-		   memset(buffer, 0, BUFFER_SIZE); // 버퍼 초기화
-		}
 				
-		if (bytes_read == -1 && errno != EAGAIN) {
+		   if (bytes_read == -1 && errno != EAGAIN) {
 					
-		   printf("Client disconnected: %d\n", client_fd);
-		   remove_client(client_fd); // 클라이언트 목록에서 제거
+		      printf("Client disconnected: %d\n", client_fd);
+		      remove_client(client_fd); // 클라이언트 목록에서 제거
 					
-		   epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL); // epoll에서 소켓 제거
+		      epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL); // epoll에서 소켓 제거
 				
-		} else if (bytes_read == -1 && errno == EAGAIN) {
+		   } else if (bytes_read == -1 && errno == EAGAIN) {
 					
-	           printf("EAGAIN received for client %d\n", client_fd); // 데이터가 준비되지 않음
+	              printf("EAGAIN received for client %d\n", client_fd); // 데이터가 준비되지 않음
 				
-		} else if (bytes_read == 0) {
+		   } else if (bytes_read == 0) {
 					
-		   printf("Client disconnected: %d\n", client_fd);
+		      printf("Client disconnected: %d\n", client_fd);
 					
-		   remove_client(client_fd); // 클라이언트 목록에서 제거
+		      remove_client(client_fd); // 클라이언트 목록에서 제거
 					
-		   epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL); // epoll에서 소켓 제거
+		      epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL); // epoll에서 소켓 제거
 				
-		}
-			
-	     }
-	 }
-    }
-    close(server_socket);                          
-    close(epoll_fd);                               
+		   }			
+	       }  
+	   }
+       }
+       close(server_socket);                          
+       close(epoll_fd);                               
 }
 
 
