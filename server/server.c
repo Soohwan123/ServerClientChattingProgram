@@ -166,8 +166,9 @@ void start_server() {
             perror("epoll_wait failed");            
             break;                                  
         }
-	printf("Epoll event for fd: %d\n", events[i].data.fd);
+
         for (int i = 0; i < n_ready; i++) {
+	    printf("Epoll event for fd: %d\n", events[i].data.fd);
 		//서버 소켓이라면
             if (events[i].data.fd == server_socket) {
                 // 새 클라이언트 연결 처리
