@@ -103,6 +103,14 @@ void broadcast_message(char *message, int sender_socket) {
     pthread_mutex_unlock(&clients_mutex); // 뮤텍스 잠금 해제
 }
 
+client_t *client = find_client_by_fd(client_fd);
+if (!client) {
+    printf("Error: Client fd %d not in clients array\n", client_fd);
+    close(client_fd);
+    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL);
+    continue;
+}
+
 // 서버 시작 함수
 void start_server() {
     int server_socket, new_socket, epoll_fd;        // 서버 소켓, 새 클라이언트 소켓, epoll 파일 디스크립터
@@ -182,10 +190,11 @@ void start_server() {
 
 		// 새 클라이언트 연결 처리
 		for (int i = 0; i < MAX_CLIENTS; i++) {
-		    if (clients[i] == NULL) { // 빈 슬롯 찾기
-		        clients[i] = malloc(sizeof(client_t)); // 새 클라이언트 메모리 할당
-		        clients[i]->socket = new_socket;       // 클라이언트 소켓 저장
-		        clients[i]->address = client_addr;     // 클라이언트 주소 저장
+		    if (clients[i] == NULL) {
+		        clients[i] = malloc(sizeof(client_t));
+		        clients[i]->socket = new_socket;
+		        clients[i]->address = client_addr;
+		        printf("Client %d added to clients array at index %d\n", new_socket, i);
 		        break;
 		    }
 		}
@@ -214,11 +223,19 @@ void start_server() {
                 // 클라이언트 데이터 처리
                 char buffer[BUFFER_SIZE];
                 int client_fd = events[i].data.fd; // 이벤트 발생한 클라이언트 소켓
+                client_t *client = find_client_by_fd(client_fd);
+		if (!client) {
+                    printf("Error: Client fd %d not in clients array\n", client_fd);
+                    close(client_fd);
+                    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL);
+                    continue;
+                }
+		    
 		if (clients[client_fd] == NULL) {
 			printf("Error: Client fd %d not in clients array\n", client_fd);
 			close(client_fd);
 			epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL);
-		continue;
+			continue;
 		}
                 int bytes_read = read(client_fd, buffer, sizeof(buffer));
 
