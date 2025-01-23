@@ -9,6 +9,7 @@
 #define BUFFER_SIZE 1024
 #define FILE_BUFFER_SIZE 4096
 #define MAX_CLIENTS 500
+#define MAX_EVENTS 10000
 
 // 클라이언트 정보 구조체
 typedef struct {

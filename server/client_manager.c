@@ -23,7 +23,6 @@ void *handle_client(void *arg) {
 
 	printf("New client connected : %d\n", client->socket);
 
-
 	// Low Latency 최적화 (TCP_NODELAY) 설정
 	int flag = 1;
 	setsockopt(client->socket,IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int)); 
