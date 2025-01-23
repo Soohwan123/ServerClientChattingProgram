@@ -92,7 +92,8 @@ void start_server() {
         close(epoll_fd);
         exit(EXIT_FAILURE);
     }
-
+	
+    perror("Server started");
     printf("Server socket : %d\n", server_socket);
 
     // 8. epoll 이벤트 루프
@@ -126,7 +127,7 @@ void start_server() {
                 }
             } 
 	    // 클라이언트 데이터 처리
-	    else {
+		else {
 		    char buffer[BUFFER_SIZE];
 		    int client_fd = events[i].data.fd;
 		    client_t *client = find_client_by_fd(client_fd);
@@ -139,7 +140,12 @@ void start_server() {
 		    while ((bytes_read = read(client_fd, buffer, sizeof(buffer))) > 0) {
 		        buffer[bytes_read] = '\0';
 		        printf("Client %d sent: %s\n", client_fd, buffer);
-		        if (strncmp(buffer, "UPLOAD:", 7) == 0) {
+		
+		        // HTTP 요청 처리
+		        if (strncmp(buffer, "GET / HTTP/1.1", 14) == 0) {
+		            const char *response = "HTTP/1.1 200 OK\r\nContent-Length: 13\r\n\r\nHello, world!";
+		            send(client_fd, response, strlen(response), 0);
+		        } else if (strncmp(buffer, "UPLOAD:", 7) == 0) {
 		            handle_file_upload(client_fd, buffer + 7);
 		        } else if (strncmp(buffer, "DOWNLOAD:", 9) == 0) {
 		            handle_file_download(client_fd, buffer + 9);
@@ -158,9 +164,7 @@ void start_server() {
 		        printf("Client disconnected: %d\n", client_fd);
 		        remove_client(client_fd);
 		        epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL);
-		    
-		        }
-		}
+		    }
 	}
     }
     close(server_socket);                          
