@@ -103,14 +103,6 @@ void broadcast_message(char *message, int sender_socket) {
     pthread_mutex_unlock(&clients_mutex); // 뮤텍스 잠금 해제
 }
 
-client_t *client = find_client_by_fd(client_fd);
-if (!client) {
-    printf("Error: Client fd %d not in clients array\n", client_fd);
-    close(client_fd);
-    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL);
-    continue;
-}
-
 // 서버 시작 함수
 void start_server() {
     int server_socket, new_socket, epoll_fd;        // 서버 소켓, 새 클라이언트 소켓, epoll 파일 디스크립터
