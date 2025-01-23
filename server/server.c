@@ -20,7 +20,7 @@ void handle_file_download(int client_socket, const char *filename); // 파일 �
 void broadcast_message(char *message, int sender_socket);          // 메시지 브로드캐스트
 
 client_t *clients[MAX_CLIENTS] = {0};                // 클라이언트 배열 초기화
-//pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER; // 클라이언트 배열 보호 뮤텍스
+pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER; // 클라이언트 배열 보호 뮤텍스
 
 int main() {
     start_server();                                  // 서버 실행
