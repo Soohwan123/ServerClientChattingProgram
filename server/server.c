@@ -125,8 +125,8 @@ void start_server() {
                     close(new_socket);
                 }
             } 
-            // 10. 클라이언트 데이터 처리
-            else {
+	    // 클라이언트 데이터 처리
+	    else {
 		    char buffer[BUFFER_SIZE];
 		    int client_fd = events[i].data.fd;
 		    client_t *client = find_client_by_fd(client_fd);
@@ -152,12 +152,15 @@ void start_server() {
 		        printf("Client disconnected: %d\n", client_fd);
 		        remove_client(client_fd);
 		        epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL);
-		    }else if (bytes_read == -1 && errno == EAGAIN) {
+		    } else if (bytes_read == -1 && errno == EAGAIN) {
 		        printf("EAGAIN received for client %d\n", client_fd);
-		    }
+		    } else if (bytes_read == 0) {
+		        printf("Client disconnected: %d\n", client_fd);
+		        remove_client(client_fd);
+		        epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL);
+		    
+		        }
 		}
-        }
-    }
 
     close(server_socket);                          
     close(epoll_fd);                               
