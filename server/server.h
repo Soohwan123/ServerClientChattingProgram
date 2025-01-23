@@ -39,13 +39,14 @@ extern client_t *clients[MAX_CLIENTS];
 extern pthread_mutex_t clients_mutex;
 extern int core_number;
 
-void start_server();
-void *handle_client(void *arg);
 void handle_file_upload(int client_socket, const char *filename); // 파일 업로드 처리
 void handle_file_download(int client_socket, const char *filename); // 파일 다운로드 처리
 void broadcast_message(char *message, int sender_socket);          // 메시지 브로드캐스트
 void add_client(int fd, struct sockaddr_in client_addr);           // 클라이언트 추가
 void remove_client(int fd);                                         // 클라이언트 제거
 client_t* find_client_by_fd(int fd);   
+void start_server();
+void *handle_client(void *arg);
+
 
 #endif
