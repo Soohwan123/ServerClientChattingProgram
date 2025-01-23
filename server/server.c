@@ -166,7 +166,7 @@ void start_server() {
             perror("epoll_wait failed");            
             break;                                  
         }
-
+	printf("Epoll event for fd: %d\n", events[i].data.fd);
         for (int i = 0; i < n_ready; i++) {
 		//서버 소켓이라면
             if (events[i].data.fd == server_socket) {
@@ -213,6 +213,12 @@ void start_server() {
                 // 클라이언트 데이터 처리
                 char buffer[BUFFER_SIZE];
                 int client_fd = events[i].data.fd; // 이벤트 발생한 클라이언트 소켓
+		if (clients[client_fd] == NULL) {
+			printf("Error: Client fd %d not in clients array\n", client_fd);
+			close(client_fd);
+			epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL);
+		continue;
+		}
                 int bytes_read = read(client_fd, buffer, sizeof(buffer));
 
                 if (bytes_read <= 0) {
@@ -240,6 +246,8 @@ void start_server() {
                     } else {
                         broadcast_message(buffer, client_fd); // 메시지 브로드캐스트
                     }
+
+		     memset(buffer, 0, BUFFER_SIZE); // 매 요청 후 버퍼 초기화
                 }
             }
         }
