@@ -92,6 +92,8 @@ void start_server() {
         exit(EXIT_FAILURE);
     }
 
+    printf("Server socket : %d\n", server_socket);
+
     // 8. epoll 이벤트 루프
     while (1) {
         int n_ready = epoll_wait(epoll_fd, events, MAX_EVENTS, -1); 
