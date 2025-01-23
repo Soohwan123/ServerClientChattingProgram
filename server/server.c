@@ -165,11 +165,13 @@ void start_server() {
 		        remove_client(client_fd);
 		        epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL);
 		    }
-	}
+	       }
+         }
     }
     close(server_socket);                          
     close(epoll_fd);                               
 }
+
 
 //멀티스레딩 아키텍쳐 -> 구버전
 	
