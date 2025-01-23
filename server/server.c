@@ -37,6 +37,64 @@ void set_nonblocking(int fd) {
     }
 }
 
+// 파일 업로드 처리
+void handle_file_upload(int client_socket, const char *filename) {
+    char filepath[256];
+    snprintf(filepath, sizeof(filepath), "uploads/%s", filename);
+
+    FILE *file = fopen(filepath, "wb");
+    if (!file) {
+        perror("File open failed");
+        return;
+    }
+
+    char buffer[FILE_BUFFER_SIZE];
+    int bytes_received;
+    while ((bytes_received = recv(client_socket, buffer, sizeof(buffer), 0)) > 0) {
+        fwrite(buffer, 1, bytes_received, file);
+    }
+
+    fclose(file);
+    printf("File '%s' uploaded successfully\n", filename);
+}
+
+// 파일 다운로드 처리
+void handle_file_download(int client_socket, const char *filename) {
+    char filepath[256];
+    snprintf(filepath, sizeof(filepath), "uploads/%s", filename);
+
+    int file_fd = open(filepath, O_RDONLY);
+    if (file_fd < 0) {
+        perror("File open failed");
+        return;
+    }
+
+    struct stat file_stat;
+    fstat(file_fd, &file_stat);
+
+    // 파일 크기를 클라이언트에게 전송
+    send(client_socket, &file_stat.st_size, sizeof(file_stat.st_size), 0);
+
+    // 파일 내용 전송
+    sendfile(client_socket, file_fd, NULL, file_stat.st_size);
+
+    close(file_fd);
+    printf("File '%s' downloaded successfully\n", filename);
+}
+
+// 메시지 브로드캐스트
+void broadcast_message(char *message, int sender_socket) {
+    pthread_mutex_lock(&clients_mutex);
+
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (clients[i] && clients[i]->socket != sender_socket) {
+            send(clients[i]->socket, message, strlen(message), 0);
+        }
+    }
+
+    pthread_mutex_unlock(&clients_mutex);
+}
+
 // 서버 시작 함수
 void start_server() {
     int server_socket, new_socket, epoll_fd;        // 서버 소켓, 새 클라이언트 소켓, epoll 파일 디스크립터
@@ -119,6 +177,12 @@ void start_server() {
                 // TCP_NODELAY 설정 (Low Latency)
                 int flag = 1;
                 setsockopt(new_socket, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int));
+
+		// Low Latency 최적화 CPU 고정 ( 버전 오류로 주석처리 )
+		// cpu_set_t cpuset;
+		// CPU_ZERO(&cpuset);
+		// CPU_SET(core_number, &cpuset); // 동적으로 지정된 코어 번호
+		// pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
 
                 // 새 클라이언트 소켓을 epoll에 등록
                 event.events = EPOLLIN | EPOLLET;  // 읽기 및 Edge-Triggered 모드 설정
