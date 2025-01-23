@@ -97,77 +97,91 @@ void start_server() {
     printf("Server socket : %d\n", server_socket);
 
     // 8. epoll 이벤트 루프
-	while (1) {
-		int n_ready = epoll_wait(epoll_fd, events, MAX_EVENTS, -1); 
-		if (n_ready == -1) {
-			perror("epoll_wait failed"); // epoll 대기 중 오류 발생 시 로그 출력
-			break;  // 루프 종료                         
+    while (1) {
+	int n_ready = epoll_wait(epoll_fd, events, MAX_EVENTS, -1); 
+	   if (n_ready == -1) {
+   		perror("epoll_wait failed"); // epoll 대기 중 오류 발생 시 로그 출력
+   		   break;  // 루프 종료                         
+           }
+
+	   for (int i = 0; i < n_ready; i++) {
+		printf("Epoll event for fd: %d\n", events[i].data.fd);
+
+		// 9. 서버 소켓 이벤트 처리
+		if (events[i].data.fd == server_socket) {
+		   new_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_len);
+		   if (new_socket < 0) {
+		      perror("Accept failed"); // 클라이언트 연결 실패 시 로그 출력
+		      continue;  // 다음 이벤트 처리로 넘어감
+		   }
+		   printf("New client connected: %d\n", new_socket);
+		   set_nonblocking(new_socket); // 새 클라이언트 소켓을 비차단 모드로 설정
+		   add_client(new_socket, client_addr); // 클라이언트 목록에 추가
+	           
+		   int flag = 1;
+		   setsockopt(new_socket, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int)); // Nagle 알고리즘 비활성화
+				
+		   event.events = EPOLLIN | EPOLLET; // 입력 이벤트 및 엣지 트리거 설정
+		   event.data.fd = new_socket;
+		   if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, new_socket, &event) == -1) {
+		      perror("epoll_ctl add client failed"); // epoll 제어 실패 시 로그 출력
+		      close(new_socket); // 소켓 닫기
+		   }
+		} 
+		// 클라이언트 데이터 처리
+		else {
+		   char buffer[BUFFER_SIZE];
+		   int client_fd = events[i].data.fd;
+		   client_t *client = find_client_by_fd(client_fd);
+		   if (!client) {
+		      printf("Error: Client fd %d not in clients array\n", client_fd);
+		      remove_client(client_fd); // 클라이언트 목록에서 제거
+	              continue; // 다음 이벤트 처리로 넘어감
 		}
+		
+		int bytes_read;
+		while ((bytes_read = read(client_fd, buffer, sizeof(buffer))) > 0) {
+		   buffer[bytes_read] = '\0';
+		   printf("Client %d sent: %s\n", client_fd, buffer);
 
-		for (int i = 0; i < n_ready; i++) {
-			printf("Epoll event for fd: %d\n", events[i].data.fd);
-
-			// 9. 서버 소켓 이벤트 처리
-			if (events[i].data.fd == server_socket) {
-				new_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_len);
-				if (new_socket < 0) {
-					perror("Accept failed"); // 클라이언트 연결 실패 시 로그 출력
-					continue;  // 다음 이벤트 처리로 넘어감
-				}
-				printf("New client connected: %d\n", new_socket);
-				set_nonblocking(new_socket); // 새 클라이언트 소켓을 비차단 모드로 설정
-				add_client(new_socket, client_addr); // 클라이언트 목록에 추가
-				int flag = 1;
-				setsockopt(new_socket, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int)); // Nagle 알고리즘 비활성화
-				event.events = EPOLLIN | EPOLLET; // 입력 이벤트 및 엣지 트리거 설정
-				event.data.fd = new_socket;
-				if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, new_socket, &event) == -1) {
-					perror("epoll_ctl add client failed"); // epoll 제어 실패 시 로그 출력
-					close(new_socket); // 소켓 닫기
-				}
-			} 
-			// 클라이언트 데이터 처리
-			else {
-				char buffer[BUFFER_SIZE];
-				int client_fd = events[i].data.fd;
-				client_t *client = find_client_by_fd(client_fd);
-				if (!client) {
-					printf("Error: Client fd %d not in clients array\n", client_fd);
-					remove_client(client_fd); // 클라이언트 목록에서 제거
-					continue; // 다음 이벤트 처리로 넘어감
-				}
-				int bytes_read;
-				while ((bytes_read = read(client_fd, buffer, sizeof(buffer))) > 0) {
-					buffer[bytes_read] = '\0';
-					printf("Client %d sent: %s\n", client_fd, buffer);
-
-					// HTTP 요청 처리
-					if (strncmp(buffer, "GET / HTTP/1.1", 14) == 0) {
-						const char *response = "HTTP/1.1 200 OK\r\nContent-Length: 13\r\n\r\nConnection Clear!";
-						send(client_fd, response, strlen(response), 0); // HTTP 응답 전송
-					} else if (strncmp(buffer, "UPLOAD:", 7) == 0) {
-						handle_file_upload(client_fd, buffer + 7); // 파일 업로드 처리
-					} else if (strncmp(buffer, "DOWNLOAD:", 9) == 0) {
-						handle_file_download(client_fd, buffer + 9); // 파일 다운로드 처리
-					} else {
-						broadcast_message(buffer, client_fd); // 메시지 브로드캐스트
-					}
-					memset(buffer, 0, BUFFER_SIZE); // 버퍼 초기화
-				}
-				if (bytes_read == -1 && errno != EAGAIN) {
-					printf("Client disconnected: %d\n", client_fd);
-					remove_client(client_fd); // 클라이언트 목록에서 제거
-					epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL); // epoll에서 소켓 제거
-				} else if (bytes_read == -1 && errno == EAGAIN) {
-					printf("EAGAIN received for client %d\n", client_fd); // 데이터가 준비되지 않음
-				} else if (bytes_read == 0) {
-					printf("Client disconnected: %d\n", client_fd);
-					remove_client(client_fd); // 클라이언트 목록에서 제거
-					epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL); // epoll에서 소켓 제거
-				}
-			}
+		   // HTTP 요청 처리
+		   if (strncmp(buffer, "GET / HTTP/1.1", 14) == 0) {
+		      const char *response = "HTTP/1.1 200 OK\r\nContent-Length: 13\r\n\r\nConnection Clear!";
+		      send(client_fd, response, strlen(response), 0); // HTTP 응답 전송
+		   } else if (strncmp(buffer, "UPLOAD:", 7) == 0) {
+		      handle_file_upload(client_fd, buffer + 7); // 파일 업로드 처리
+		   } else if (strncmp(buffer, "DOWNLOAD:", 9) == 0) {
+		      handle_file_download(client_fd, buffer + 9); // 파일 다운로드 처리
+		   } else {
+		      broadcast_message(buffer, client_fd); // 메시지 브로드캐스트
+		   }
+		   memset(buffer, 0, BUFFER_SIZE); // 버퍼 초기화
 		}
-	}
+				
+		if (bytes_read == -1 && errno != EAGAIN) {
+					
+		   printf("Client disconnected: %d\n", client_fd);
+		   remove_client(client_fd); // 클라이언트 목록에서 제거
+					
+		   epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL); // epoll에서 소켓 제거
+				
+		} else if (bytes_read == -1 && errno == EAGAIN) {
+					
+	           printf("EAGAIN received for client %d\n", client_fd); // 데이터가 준비되지 않음
+				
+		} else if (bytes_read == 0) {
+					
+		   printf("Client disconnected: %d\n", client_fd);
+					
+		   remove_client(client_fd); // 클라이언트 목록에서 제거
+					
+		   epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL); // epoll에서 소켓 제거
+				
+		}
+			
+	     }
+	 }
+    }
     close(server_socket);                          
     close(epoll_fd);                               
 }
