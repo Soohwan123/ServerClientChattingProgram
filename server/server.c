@@ -103,6 +103,15 @@ void broadcast_message(char *message, int sender_socket) {
     pthread_mutex_unlock(&clients_mutex); // 뮤텍스 잠금 해제
 }
 
+client_t* find_client_by_fd(int fd) {
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (clients[i] && clients[i]->socket == fd) {
+            return clients[i];
+        }
+    }
+    return NULL;
+}
+
 // 서버 시작 함수
 void start_server() {
     int server_socket, new_socket, epoll_fd;        // 서버 소켓, 새 클라이언트 소켓, epoll 파일 디스크립터
