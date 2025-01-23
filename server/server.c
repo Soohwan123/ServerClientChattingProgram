@@ -7,6 +7,10 @@
 #include <sys/epoll.h>
 #include "server.h"
 #include <fcntl.h>
+#include <sched.h>         // CPU affinity 설정
+#include <netinet/tcp.h>   // TCP_NODELAY
+#include <sys/stat.h>      // 파일 상태
+#include <sys/sendfile.h>  // sendfile 함수
 
 
 void start_server();                                  // 서버 시작 함수
