@@ -152,6 +152,8 @@ void start_server() {
 		        printf("Client disconnected: %d\n", client_fd);
 		        remove_client(client_fd);
 		        epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL);
+		    }else if (bytes_read == -1 && errno == EAGAIN) {
+		        printf("EAGAIN received for client %d\n", client_fd);
 		    }
 		}
         }
