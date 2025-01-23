@@ -1,5 +1,6 @@
 #include "server.h"
 #include "utils.c"
+#include <errno.h>
 
 
 // 함수 선언
