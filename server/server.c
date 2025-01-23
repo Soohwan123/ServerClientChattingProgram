@@ -126,32 +126,33 @@ void start_server() {
             } 
             // 10. 클라이언트 데이터 처리
             else {
-                char buffer[BUFFER_SIZE];
-                int client_fd = events[i].data.fd;
-                client_t *client = find_client_by_fd(client_fd);
-                if (!client) {
-                    printf("Error: Client fd %d not in clients array\n", client_fd);
-                    remove_client(client_fd); // **수정**
-                    continue;
-                }
-                int bytes_read = read(client_fd, buffer, sizeof(buffer));
-                if (bytes_read <= 0) {
-                    printf("Client disconnected: %d\n", client_fd);
-                    remove_client(client_fd);
-                    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL);
-                } else {
-                    buffer[bytes_read] = '\0';
-                    printf("Client %d sent: %s\n", client_fd, buffer);
-                    if (strncmp(buffer, "UPLOAD:", 7) == 0) {
-                        handle_file_upload(client_fd, buffer + 7);
-                    } else if (strncmp(buffer, "DOWNLOAD:", 9) == 0) {
-                        handle_file_download(client_fd, buffer + 9);
-                    } else {
-                        broadcast_message(buffer, client_fd);
-                    }
-                    memset(buffer, 0, BUFFER_SIZE); // 버퍼 초기화
-                }
-            }
+		    char buffer[BUFFER_SIZE];
+		    int client_fd = events[i].data.fd;
+		    client_t *client = find_client_by_fd(client_fd);
+		    if (!client) {
+		        printf("Error: Client fd %d not in clients array\n", client_fd);
+		        remove_client(client_fd);
+		        continue;
+		    }
+		    int bytes_read;
+		    while ((bytes_read = read(client_fd, buffer, sizeof(buffer))) > 0) {
+		        buffer[bytes_read] = '\0';
+		        printf("Client %d sent: %s\n", client_fd, buffer);
+		        if (strncmp(buffer, "UPLOAD:", 7) == 0) {
+		            handle_file_upload(client_fd, buffer + 7);
+		        } else if (strncmp(buffer, "DOWNLOAD:", 9) == 0) {
+		            handle_file_download(client_fd, buffer + 9);
+		        } else {
+		            broadcast_message(buffer, client_fd);
+		        }
+		        memset(buffer, 0, BUFFER_SIZE);
+		    }
+		    if (bytes_read == -1 && errno != EAGAIN) {
+		        printf("Client disconnected: %d\n", client_fd);
+		        remove_client(client_fd);
+		        epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL);
+		    }
+		}
         }
     }
 
