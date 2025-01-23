@@ -3,7 +3,11 @@
 
 #include <netinet/in.h> //sockaddr_in
 #include <pthread.h>
-#include <sched.h>
+#include <fcntl.h>
+#include <sched.h>         // CPU affinity 설정
+#include <netinet/tcp.h>   // TCP_NODELAY
+#include <sys/stat.h>      // 파일 상태
+#include <sys/sendfile.h>  // sendfile 함수
 
 #define PORT 8080
 #define BUFFER_SIZE 1024
