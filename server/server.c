@@ -86,17 +86,21 @@ void handle_file_download(int client_socket, const char *filename) {
     printf("File '%s' downloaded successfully\n", filename);
 }
 
-// 메시지 브로드캐스트
 void broadcast_message(char *message, int sender_socket) {
-    pthread_mutex_lock(&clients_mutex);
+    pthread_mutex_lock(&clients_mutex); // 뮤텍스 잠금
 
     for (int i = 0; i < MAX_CLIENTS; i++) {
         if (clients[i] && clients[i]->socket != sender_socket) {
-            send(clients[i]->socket, message, strlen(message), 0);
+            if (send(clients[i]->socket, message, strlen(message), 0) < 0) {
+                perror("Send failed");
+                close(clients[i]->socket);
+                free(clients[i]);       // 메모리 해제
+                clients[i] = NULL;      // 슬롯 초기화
+            }
         }
     }
 
-    pthread_mutex_unlock(&clients_mutex);
+    pthread_mutex_unlock(&clients_mutex); // 뮤텍스 잠금 해제
 }
 
 // 서버 시작 함수
@@ -175,6 +179,16 @@ void start_server() {
 
                 printf("New client connected: %d\n", new_socket);
 
+		// 새 클라이언트 연결 처리
+		for (int i = 0; i < MAX_CLIENTS; i++) {
+		    if (clients[i] == NULL) { // 빈 슬롯 찾기
+		        clients[i] = malloc(sizeof(client_t)); // 새 클라이언트 메모리 할당
+		        clients[i]->socket = new_socket;       // 클라이언트 소켓 저장
+		        clients[i]->address = client_addr;     // 클라이언트 주소 저장
+		        break;
+		    }
+		}
+
                 // 클라이언트 소켓 비차단 설정
                 set_nonblocking(new_socket);
 
@@ -204,6 +218,14 @@ void start_server() {
                 if (bytes_read <= 0) {
                     // 클라이언트 종료
                     printf("Client disconnected: %d\n", client_fd);
+		    // 클라이언트 종료 처리
+		    for (int i = 0; i < MAX_CLIENTS; i++) {
+			    if (clients[i] && clients[i]->socket == client_fd) {
+			        free(clients[i]);        // 메모리 해제
+			        clients[i] = NULL;       // 슬롯 초기화
+			        break;
+			    }
+			}
                     close(client_fd);             // 소켓 닫기
                     epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL); // epoll에서 제거
                 } else {
