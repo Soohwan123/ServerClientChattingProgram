@@ -69,9 +69,10 @@ void broadcast_message(char *message, int sender_socket) {
 
 // 클라이언트 추가 함수
 void add_client(int fd, struct sockaddr_in client_addr) {
-    pthread_mutex_lock(&clients_mutex);	
-    if (find_client_by_fd(fd)) {                    // **수정**: 중복 확인 추가
+    pthread_mutex_lock(&clients_mutex);
+    if (find_client_by_fd(fd)) {
         printf("Warning: Client %d already exists in clients array\n", fd);
+        pthread_mutex_unlock(&clients_mutex);
         return;
     }
     for (int i = 0; i < MAX_CLIENTS; i++) {
@@ -79,31 +80,29 @@ void add_client(int fd, struct sockaddr_in client_addr) {
             clients[i] = malloc(sizeof(client_t));
             clients[i]->socket = fd;
             clients[i]->address = client_addr;
-            clients[i]->index = i;                  // 배열 인덱스 저장
+            clients[i]->index = i;
             printf("Client %d added to clients array at index %d\n", fd, i);
+            pthread_mutex_unlock(&clients_mutex);
             return;
         }
     }
     printf("Error: No available slot for client %d\n", fd);
-
-    pthread_mutex_unlock(&clients_mutex);	
+    pthread_mutex_unlock(&clients_mutex);
 }
 
-// 클라이언트 제거 함수
 void remove_client(int fd) {
-
-    pthread_mutex_lock(&clients_mutex);	
+    pthread_mutex_lock(&clients_mutex);
     for (int i = 0; i < MAX_CLIENTS; i++) {
         if (clients[i] && clients[i]->socket == fd) {
-            close(clients[i]->socket);              // 소켓 닫기
-            free(clients[i]);                       // 메모리 해제
-            clients[i] = NULL;                      // 슬롯 초기화
+            close(clients[i]->socket);
+            free(clients[i]);
+            clients[i] = NULL;
             printf("Client fd %d removed from clients array\n", fd);
+            pthread_mutex_unlock(&clients_mutex);
             return;
         }
     }
-
-    pthread_mutex_unlock(&clients_mutex);	
+    pthread_mutex_unlock(&clients_mutex);
 }
 
 // 클라이언트 찾기 함수
