@@ -161,6 +161,7 @@ void start_server() {
 		    
 		        }
 		}
+	}
 
     close(server_socket);                          
     close(epoll_fd);                               
