@@ -16,6 +16,7 @@ typedef struct {
 	int socket;
 	struct sockaddr_in address;   //클라이언트 주소정보
 	char username[32];
+	int index;                // 배열 내 인덱스 (추적용)
 }client_t;
 
 typedef struct {
