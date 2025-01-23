@@ -4,6 +4,12 @@
 // 함수 선언
 void start_server();                                  // 서버 시작 함수
 void set_nonblocking(int fd);                        // 비차단 소켓 설정 함수
+void handle_file_upload(int client_socket, const char *filename); // 파일 업로드 처리
+void handle_file_download(int client_socket, const char *filename); // 파일 다운로드 처리
+void broadcast_message(char *message, int sender_socket);          // 메시지 브로드캐스트
+void add_client(int fd, struct sockaddr_in client_addr);           // 클라이언트 추가
+void remove_client(int fd);                                         // 클라이언트 제거
+client_t* find_client_by_fd(int fd);   
 
 
 // 전역 변수
