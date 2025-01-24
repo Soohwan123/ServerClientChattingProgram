@@ -34,6 +34,7 @@ typedef struct {
     int socket;
     struct sockaddr_in address; // 클라이언트 주소 정보
     int index;                  // 클라이언트 배열 내 인덱스
+    int is_websocket;
 } client_t;
 
 

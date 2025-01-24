@@ -81,6 +81,7 @@ void add_client(int fd, struct sockaddr_in client_addr) {
             clients[i]->socket = fd;
             clients[i]->address = client_addr;
             clients[i]->index = i;
+	    clients[i]->is_websocket = 0;
             printf("Client %d added to clients array at index %d\n", fd, i);
             pthread_mutex_unlock(&clients_mutex);
             return;
