@@ -245,14 +245,17 @@ void websocket_broadcast(const char *message, int sender_socket) {
         if (clients[i] && clients[i]->socket != sender_socket) {
             char frame[BUFFER_SIZE];
             size_t frame_length = encode_websocket_frame(message, frame, sizeof(frame));
+
             if (frame_length > 0) {
+                printf("Sending to client %d: %s\n", clients[i]->socket, message);
+
                 if (send(clients[i]->socket, frame, frame_length, 0) == -1) {
-                    perror("WebSocket send failed");
+                    perror("WebSocket send failed"); // `send` 호출 실패 디버깅
                 } else {
-                    printf("Sent to client %d: %s\n", clients[i]->socket, message);
+                    printf("Successfully sent to client %d: %s\n", clients[i]->socket, message);
                 }
             } else {
-                printf("Failed to encode WebSocket message\n");
+                printf("Failed to encode WebSocket message for client %d\n", clients[i]->socket);
             }
         }
     }
