@@ -133,45 +133,47 @@ void start_server() {
 	              continue; // 다음 이벤트 처리로 넘어감
 	       	   }
 		
-		   int bytes_read;
-		   while ((bytes_read = read(client_fd, buffer, sizeof(buffer))) > 0) {
-		      buffer[bytes_read] = '\0';
-		      printf("Client %d sent: %s\n", client_fd, buffer);
-
-		      // HTTP 요청 처리
-		      if (strncmp(buffer, "GET / HTTP/1.1", 14) == 0) {
-		         const char *response = "HTTP/1.1 200 OK\r\nContent-Length: 13\r\n\r\nConnection Clear!";
-		         send(client_fd, response, strlen(response), 0); // HTTP 응답 전송
-		      } else if (strncmp(buffer, "UPLOAD:", 7) == 0) {
-		         handle_file_upload(client_fd, buffer + 7); // 파일 업로드 처리
-		      } else if (strncmp(buffer, "DOWNLOAD:", 9) == 0) {
-		         handle_file_download(client_fd, buffer + 9); // 파일 다운로드 처리
-		      } else {
-		         broadcast_message(buffer, client_fd); // 메시지 브로드캐스트
-		      }
-		      memset(buffer, 0, BUFFER_SIZE); // 버퍼 초기화
-		   }
-				
-		   if (bytes_read == -1 && errno != EAGAIN) {
-					
-		      printf("Client disconnected: %d\n", client_fd);
-		      remove_client(client_fd); // 클라이언트 목록에서 제거
-					
-		      epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL); // epoll에서 소켓 제거
-				
-		   } else if (bytes_read == -1 && errno == EAGAIN) {
-					
-	              printf("EAGAIN received for client %d\n", client_fd); // 데이터가 준비되지 않음
-				
-		   } else if (bytes_read == 0) {
-					
-		      printf("Client disconnected: %d\n", client_fd);
-					
-		      remove_client(client_fd); // 클라이언트 목록에서 제거
-					
-		      epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL); // epoll에서 소켓 제거
-				
-		   }			
+		int bytes_read;
+		while ((bytes_read = read(client_fd, buffer, sizeof(buffer))) > 0) {
+		    buffer[bytes_read] = '\0'; // 문자열 종료 처리
+		    printf("Client %d sent: %s\n", client_fd, buffer);
+		
+		    // HTTP 요청 처리
+		    if (strncmp(buffer, "GET / HTTP/1.1", 14) == 0) {
+		        const char *response = "HTTP/1.1 200 OK\r\nContent-Length: 13\r\n\r\nConnection Clear!";
+		        if (send(client_fd, response, strlen(response), 0) == -1) {
+		            perror("Failed to send HTTP response");
+		        }
+		    } else if (strncmp(buffer, "UPLOAD:", 7) == 0) {
+		        handle_file_upload(client_fd, buffer + 7); // 파일 업로드 처리
+		    } else if (strncmp(buffer, "DOWNLOAD:", 9) == 0) {
+		        handle_file_download(client_fd, buffer + 9); // 파일 다운로드 처리
+		    } else {
+		        broadcast_message(buffer, client_fd); // 메시지 브로드캐스트
+		    }
+		
+		    // 버퍼 초기화
+		    memset(buffer, 0, BUFFER_SIZE);
+		}
+		
+		// read() 종료 조건 확인
+		if (bytes_read == -1) {
+		    if (errno != EAGAIN && errno != EWOULDBLOCK) {
+		        // EAGAIN이 아니면 클라이언트 연결 종료 처리
+		        perror("Read error");
+		        printf("Client disconnected: %d\n", client_fd);
+		        remove_client(client_fd);
+		        epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL);
+		    } else {
+		        // EAGAIN: 데이터가 아직 준비되지 않음
+		        printf("EAGAIN received for client %d\n", client_fd);
+		    }
+		} else if (bytes_read == 0) {
+		    // 클라이언트가 연결을 종료함
+		    printf("Client disconnected: %d\n", client_fd);
+		    remove_client(client_fd);
+		    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL);
+		}		
 	       }  
 	   }
        }
