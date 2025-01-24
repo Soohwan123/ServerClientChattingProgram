@@ -51,5 +51,6 @@ void remove_client(int fd);
 client_t *find_client_by_fd(int fd);
 char *extract_websocket_key(const char *buffer);
 void base64_encode(const unsigned char *input, size_t length, char *output, size_t output_size);
+int websocket_decode_message(const char *input, char *output, size_t input_len);
 
 #endif
