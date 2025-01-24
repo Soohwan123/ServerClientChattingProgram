@@ -83,19 +83,6 @@ void add_client(int fd, struct sockaddr_in client_addr) {
             clients[i]->index = i;
 	    clients[i]->is_websocket = 0;
             printf("Client %d added to clients array at index %d\n", fd, i);
-
-            // 클라이언트로 자신의 인덱스를 WebSocket 프레임으로 전송
-            char index_message[BUFFER_SIZE];
-            snprintf(index_message, sizeof(index_message), "index:%d", i);
-
-            char frame[BUFFER_SIZE];
-            size_t frame_length = encode_websocket_frame(index_message, frame, sizeof(frame));
-	    if (send(fd, frame, frame_length, 0) == -1) {
-                perror("WebSocket send failed");
-            } else {
-                printf("Sent to client %d: %s\n", clients[i]->socket, index_message);
-            }
-		
             pthread_mutex_unlock(&clients_mutex);
             return;
         }
