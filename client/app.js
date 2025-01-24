@@ -15,6 +15,18 @@ sendButton.addEventListener('click', () => {
     }
 });
 
+document.getElementById('messageInput').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') { // 엔터 키 감지
+        const messageInput = document.getElementById('messageInput');
+        const message = messageInput.value.trim(); // 공백 제거
+        if (message) {
+            socket.send(message); // 메시지 전송
+            messageInput.value = ''; // 입력 필드 초기화
+        }
+        event.preventDefault(); // 엔터 키 기본 동작(줄바꿈) 방지
+    }
+});
+
 // WebSocket 메시지 수신
 socket.onmessage = (event) => {
     const message = event.data; // 서버에서 받은 메시지
