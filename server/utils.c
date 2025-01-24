@@ -167,6 +167,37 @@ size_t decode_websocket_frame(const char *frame, size_t length, char *decoded_me
     return payload_length;
 }
 
+// WebSocket 프레임 디코딩 함수
+int websocket_decode_message(const char *input, char *output, size_t input_len) {
+    if (input_len < 2) return -1; // 최소 길이 체크
+
+    size_t payload_length = input[1] & 0x7F; // 첫 7비트는 payload 길이
+    size_t offset = 2;
+
+    // Extended payload length 처리
+    if (payload_length == 126) {
+        payload_length = (input[2] << 8) | input[3];
+        offset += 2;
+    } else if (payload_length == 127) {
+        // 8바이트 길이 (잘 사용되지 않음)
+        payload_length = 0; // 대규모 payload는 처리하지 않음
+        return -1;
+    }
+
+    // Mask 확인
+    uint8_t masking_key[4];
+    memcpy(masking_key, input + offset, 4);
+    offset += 4;
+
+    // Payload 디코딩
+    for (size_t i = 0; i < payload_length; i++) {
+        output[i] = input[offset + i] ^ masking_key[i % 4];
+    }
+    output[payload_length] = '\0'; // 문자열 종료
+
+    return payload_length; // 디코딩된 메시지 길이 반환
+}
+
 // WebSocket 메시지 인코딩 함수
 size_t encode_websocket_frame(const char *message, char *frame, size_t buffer_size) {
     size_t message_length = strlen(message);
