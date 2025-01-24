@@ -239,20 +239,22 @@ size_t encode_websocket_frame(const char *message, char *frame, size_t buffer_si
 
 // WebSocket 브로드캐스트 함수
 void websocket_broadcast(const char *message, int sender_socket) {
+    printf("Entering websocket_broadcast: message='%s', sender_socket=%d\n", message, sender_socket);
+    
     pthread_mutex_lock(&clients_mutex); // 뮤텍스 잠금
+    printf("Mutex locked in websocket_broadcast\n");
 
     for (int i = 0; i < MAX_CLIENTS; i++) {
         if (clients[i] && clients[i]->socket != sender_socket) {
+            printf("Attempting to send to client at index %d, socket=%d\n", i, clients[i]->socket);
+            
             char frame[BUFFER_SIZE];
             size_t frame_length = encode_websocket_frame(message, frame, sizeof(frame));
-
             if (frame_length > 0) {
-                printf("Sending to client %d: %s\n", clients[i]->socket, message);
-
                 if (send(clients[i]->socket, frame, frame_length, 0) == -1) {
-                    perror("WebSocket send failed"); // `send` 호출 실패 디버깅
+                    perror("WebSocket send failed");
                 } else {
-                    printf("Successfully sent to client %d: %s\n", clients[i]->socket, message);
+                    printf("Sent to client %d: %s\n", clients[i]->socket, message);
                 }
             } else {
                 printf("Failed to encode WebSocket message for client %d\n", clients[i]->socket);
@@ -260,8 +262,10 @@ void websocket_broadcast(const char *message, int sender_socket) {
         }
     }
 
+    printf("Exiting websocket_broadcast\n");
     pthread_mutex_unlock(&clients_mutex); // 뮤텍스 잠금 해제
 }
+
 
 // WebSocket 키 추출 함수
 char *extract_websocket_key(const char *buffer) {
