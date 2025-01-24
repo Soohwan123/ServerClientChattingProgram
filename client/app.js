@@ -15,9 +15,9 @@ sendButton.addEventListener('click', () => {
     }
 });
 
-document.getElementById('messageInput').addEventListener('keydown', (event) => {
+document.getElementById('chat-input').addEventListener('keydown', (event) => {
     if (event.key === 'Enter') { // 엔터 키 감지
-        const messageInput = document.getElementById('messageInput');
+        const messageInput = document.getElementById('chat-input');
         const message = messageInput.value.trim(); // 공백 제거
         if (message) {
             socket.send(message); // 메시지 전송
