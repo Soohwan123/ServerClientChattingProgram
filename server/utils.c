@@ -114,3 +114,129 @@ client_t* find_client_by_fd(int fd) {
     }
     return NULL;
 }
+
+
+// WebSocket 핸드셰이크 응답 생성 함수
+void websocket_handshake(int client_fd, const char *sec_websocket_key) {
+    char key_magic[256];
+    // WebSocket 키와 MAGIC_STRING을 결합
+    snprintf(key_magic, sizeof(key_magic), "%s%s", sec_websocket_key, MAGIC_STRING);
+
+    // SHA1 해싱
+    unsigned char hash[SHA_DIGEST_LENGTH];
+    SHA1((unsigned char *)key_magic, strlen(key_magic), hash);
+
+    // Base64 인코딩
+    char accept_key[256];
+    base64_encode(hash, SHA_DIGEST_LENGTH, accept_key, sizeof(accept_key));
+
+    // WebSocket 핸드셰이크 응답 문자열 생성
+    char response[512];
+    snprintf(response, sizeof(response),
+             "HTTP/1.1 101 Switching Protocols\r\n"
+             "Upgrade: websocket\r\n"
+             "Connection: Upgrade\r\n"
+             "Sec-WebSocket-Accept: %s\r\n\r\n",
+             accept_key);
+
+    // 클라이언트로 응답 전송
+    send(client_fd, response, strlen(response), 0);
+    printf("WebSocket handshake completed with client %d\n", client_fd);
+}
+
+// WebSocket 메시지 디코딩 함수
+size_t decode_websocket_frame(const char *frame, size_t length, char *decoded_message, size_t buffer_size) {
+    if (length < 2) return 0; // 프레임 길이 확인
+    size_t payload_length = frame[1] & 0x7F; // 데이터 길이 추출
+
+    if (payload_length > buffer_size - 1) {
+        printf("Payload too large to decode\n");
+        return 0;
+    }
+
+    // 마스킹 키 및 실제 데이터의 시작 위치 계산
+    const char *masking_key = &frame[2];
+    const char *payload = &frame[6];
+
+    // 마스크 해제
+    for (size_t i = 0; i < payload_length; i++) {
+        decoded_message[i] = payload[i] ^ masking_key[i % 4];
+    }
+    decoded_message[payload_length] = '\0'; // NULL 종료
+
+    return payload_length;
+}
+
+// WebSocket 메시지 인코딩 함수
+size_t encode_websocket_frame(const char *message, char *frame, size_t buffer_size) {
+    size_t message_length = strlen(message);
+    if (message_length > buffer_size - 2) {
+        printf("Message too large to encode\n");
+        return 0;
+    }
+
+    // WebSocket 헤더 생성
+    frame[0] = 0x81;  // FIN 플래그와 텍스트 프레임
+    frame[1] = message_length;
+
+    // 메시지 복사
+    memcpy(&frame[2], message, message_length);
+    return message_length + 2;
+}
+
+// WebSocket 메시지 브로드캐스트 함수
+void websocket_broadcast(const char *message, int sender_socket) {
+    pthread_mutex_lock(&clients_mutex); // 뮤텍스 잠금
+
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (clients[i] && clients[i]->socket != sender_socket) {
+            char frame[BUFFER_SIZE];
+            size_t frame_length = encode_websocket_frame(message, frame, sizeof(frame));
+            if (frame_length > 0) {
+                send(clients[i]->socket, frame, frame_length, 0);
+            }
+        }
+    }
+
+    pthread_mutex_unlock(&clients_mutex); // 뮤텍스 잠금 해제
+}
+
+// WebSocket 키 추출 함수
+char *extract_websocket_key(const char *buffer) {
+    static char key[256];
+    char *key_start = strstr(buffer, "Sec-WebSocket-Key: ");
+    if (!key_start) return NULL;
+    key_start += strlen("Sec-WebSocket-Key: ");
+
+    // 키 종료 위치를 찾고 추출
+    char *key_end = strstr(key_start, "\r\n");
+    if (!key_end) return NULL;
+    size_t key_length = key_end - key_start;
+
+    strncpy(key, key_start, key_length);
+    key[key_length] = '\0';
+    return key;
+}
+
+// Base64 인코딩 함수
+void base64_encode(const unsigned char *input, size_t length, char *output, size_t output_size) {
+    static const char table[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    size_t i, j;
+    for (i = 0, j = 0; i + 2 < length; i += 3) {
+        output[j++] = table[(input[i] >> 2) & 0x3F];
+        output[j++] = table[((input[i] & 0x03) << 4) | ((input[i + 1] >> 4) & 0x0F)];
+        output[j++] = table[((input[i + 1] & 0x0F) << 2) | ((input[i + 2] >> 6) & 0x03)];
+        output[j++] = table[input[i + 2] & 0x3F];
+    }
+    if (i < length) {
+        output[j++] = table[(input[i] >> 2) & 0x3F];
+        if (i + 1 < length) {
+            output[j++] = table[((input[i] & 0x03) << 4) | ((input[i + 1] >> 4) & 0x0F)];
+            output[j++] = table[(input[i + 1] & 0x0F) << 2];
+        } else {
+            output[j++] = table[(input[i] & 0x03) << 4];
+        }
+        while (j % 4) output[j++] = '=';
+    }
+    output[j] = '\0';
+}
