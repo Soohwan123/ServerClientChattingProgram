@@ -14,6 +14,7 @@
 #include <netinet/tcp.h>   // TCP_NODELAY
 #include <sys/stat.h>      // 파일 상태
 #include <sys/sendfile.h>  // sendfile 함수
+#include <openssl/sha.h> // WebSocket 핸드셰이크용
 
 #define PORT 8080
 #define BUFFER_SIZE 1024
