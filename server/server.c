@@ -131,51 +131,51 @@ void start_server() {
                 }
 
                 int bytes_read;
-while ((bytes_read = read(client_fd, buffer, sizeof(buffer))) > 0) {
-    buffer[bytes_read] = '\0'; // 문자열 종료 처리
-
-    // 디버깅: 수신한 Raw 메시지 출력
-    printf("Raw message received (length: %d): %s\n", bytes_read, buffer);
-
-    // WebSocket 핸드셰이크 처리
-    if (!client->is_websocket && strstr(buffer, "Upgrade: websocket")) {
-        char *websocket_key = extract_websocket_key(buffer);
-        if (websocket_key) {
-            websocket_handshake(client_fd, websocket_key); // WebSocket 핸드셰이크 처리
-            client->is_websocket = 1; // 클라이언트를 WebSocket 상태로 설정
-        } else {
-            printf("WebSocket key not found in request.\n");
-        }
-        continue; // 핸드셰이크 후 다음 루프로 이동
-    }
-
-    // WebSocket 메시지 처리
-    if (client->is_websocket) {
-        char decoded_message[BUFFER_SIZE];
-        int decoded_length = decode_websocket_frame(buffer, bytes_read, decoded_message, sizeof(decoded_message));
-        if (decoded_length > 0) {
-            decoded_message[decoded_length] = '\0'; // 문자열 종료
-            printf("WebSocket message received: %s\n", decoded_message);
-
-            // WebSocket 브로드캐스트
-            websocket_broadcast(decoded_message, client_fd);
-        } else {
-            printf("Failed to decode WebSocket message from client %d.\n", client_fd);
-        }
-    } else {
-        // 일반 HTTP 요청 처리
-        printf("Non-WebSocket message received: %s\n", buffer);
-        if (strncmp(buffer, "GET / HTTP/1.1", 14) == 0) {
-            const char *response = "HTTP/1.1 200 OK\r\nContent-Length: 13\r\n\r\nConnection Clear!";
-            if (send(client_fd, response, strlen(response), 0) == -1) {
-                perror("Failed to send HTTP response");
-            }
-        }
-    }
-
-    // 버퍼 초기화
-    memset(buffer, 0, BUFFER_SIZE);
-}
+		while ((bytes_read = read(client_fd, buffer, sizeof(buffer))) > 0) {
+		    buffer[bytes_read] = '\0'; // 문자열 종료 처리
+		
+		    // 디버깅: 수신한 Raw 메시지 출력
+		    printf("Raw message received (length: %d): %s\n", bytes_read, buffer);
+		
+		    // WebSocket 핸드셰이크 처리
+		    if (!client->is_websocket && strstr(buffer, "Upgrade: websocket")) {
+		        char *websocket_key = extract_websocket_key(buffer);
+		        if (websocket_key) {
+		            websocket_handshake(client_fd, websocket_key); // WebSocket 핸드셰이크 처리
+		            client->is_websocket = 1; // 클라이언트를 WebSocket 상태로 설정
+		        } else {
+		            printf("WebSocket key not found in request.\n");
+		        }
+		        continue; // 핸드셰이크 후 다음 루프로 이동
+		    }
+		
+		    // WebSocket 메시지 처리
+		    if (client->is_websocket) {
+		        char decoded_message[BUFFER_SIZE];
+		        int decoded_length = decode_websocket_frame(buffer, bytes_read, decoded_message, sizeof(decoded_message));
+		        if (decoded_length > 0) {
+		            decoded_message[decoded_length] = '\0'; // 문자열 종료
+		            printf("WebSocket message received: %s\n", decoded_message);
+		
+		            // WebSocket 브로드캐스트
+		            websocket_broadcast(decoded_message, client_fd);
+		        } else {
+		            printf("Failed to decode WebSocket message from client %d.\n", client_fd);
+		        }
+		    } else {
+		        // 일반 HTTP 요청 처리
+		        printf("Non-WebSocket message received: %s\n", buffer);
+		        if (strncmp(buffer, "GET / HTTP/1.1", 14) == 0) {
+		            const char *response = "HTTP/1.1 200 OK\r\nContent-Length: 13\r\n\r\nConnection Clear!";
+		            if (send(client_fd, response, strlen(response), 0) == -1) {
+		                perror("Failed to send HTTP response");
+		            }
+		        }
+		    }
+		
+		    // 버퍼 초기화
+		    memset(buffer, 0, BUFFER_SIZE);
+		}
 
                 if (bytes_read == -1) {
                     if (errno != EAGAIN && errno != EWOULDBLOCK) {
