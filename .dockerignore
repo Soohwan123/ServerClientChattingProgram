@@ -1,0 +1,6 @@
+*.o
+*.log
+.git
+node_modules
+client/node_modules
+client/*.tmp
