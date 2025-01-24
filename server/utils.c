@@ -139,45 +139,54 @@ void websocket_handshake(int client_fd, const char *sec_websocket_key) {
     printf("WebSocket handshake completed with client %d\n", client_fd);
 }
 
-// WebSocket 메시지 디코딩 함수
 size_t decode_websocket_frame(const char *frame, size_t length, char *decoded_message, size_t buffer_size) {
-    if (length < 2) return 0; // 최소 길이 확인
+    if (length < 2) {
+        printf("WebSocket frame too short\n");
+        return 0; // 최소 길이 확인
+    }
 
     size_t payload_length = frame[1] & 0x7F; // 첫 7비트에서 페이로드 길이 추출
     size_t offset = 2; // 기본 오프셋
 
-    // Extended payload length 처리
     if (payload_length == 126) {
-        if (length < 4) return 0; // 최소 길이 확인
+        if (length < 4) {
+            printf("WebSocket frame too short for extended payload\n");
+            return 0;
+        }
         payload_length = (frame[2] << 8) | frame[3];
         offset += 2;
     } else if (payload_length == 127) {
-        if (length < 10) return 0; // 최소 길이 확인
-        // 8바이트 길이는 처리하지 않음
+        printf("WebSocket frame with 8-byte payload not supported\n");
         return 0;
     }
 
-    // Masking key 확인
-    if (length < offset + 4) return 0; // 최소 길이 확인
+    if (length < offset + 4) {
+        printf("WebSocket frame too short for masking key\n");
+        return 0;
+    }
     const uint8_t *masking_key = (uint8_t *)&frame[offset];
     offset += 4;
 
-    // 페이로드 데이터 시작 위치
-    if (length < offset + payload_length) return 0; // 최소 길이 확인
+    if (length < offset + payload_length) {
+        printf("WebSocket frame too short for payload\n");
+        return 0;
+    }
     const uint8_t *payload = (uint8_t *)&frame[offset];
 
-    // 디코딩 (마스크 해제)
-    if (payload_length > buffer_size - 1) return 0; // 버퍼 크기 초과 확인
+    if (payload_length > buffer_size - 1) {
+        printf("Payload length exceeds buffer size\n");
+        return 0;
+    }
+
     for (size_t i = 0; i < payload_length; i++) {
         decoded_message[i] = payload[i] ^ masking_key[i % 4];
     }
-    decoded_message[payload_length] = '\0'; // 문자열 종료
+    decoded_message[payload_length] = '\0';
 
-    // 디코딩된 메시지 출력 (디버깅용)
     printf("Decoded WebSocket message: %s\n", decoded_message);
-
-    return payload_length; // 디코딩된 메시지 길이 반환
+    return payload_length;
 }
+
 
 // WebSocket 프레임 디코딩 함수
 int websocket_decode_message(const char *input, char *output, size_t input_len) {
