@@ -13,7 +13,7 @@ client_t *clients[MAX_CLIENTS] = {0};                // 클라이언트 배열 �
 pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER; // 클라이언트 배열 보호 뮤텍스
 
 int main() {
-    start_server();                                  // 서버 실행
+    start_server();// 서버 실행
     return 0;
 }
 
