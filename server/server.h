@@ -21,32 +21,34 @@
 #define MAX_CLIENTS 500
 #define MAX_EVENTS 10000
 
+#define PORT 8080
+#define BUFFER_SIZE 1024
+#define MAX_CLIENTS 500
+#define MAX_EVENTS 10000
+#define MAGIC_STRING "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+
 // 클라이언트 정보 구조체
 typedef struct {
-	int socket;
-	struct sockaddr_in address;   //클라이언트 주소정보
-	char username[32];
-	int index;                // 배열 내 인덱스 (추적용)
-}client_t;
-
-typedef struct {
-    client_t *client;     // 클라이언트 정보
-    int core_number;      // 할당된 코어 번호
-} thread_args_t;
+    int socket;
+    struct sockaddr_in address; // 클라이언트 주소 정보
+    int index;                  // 클라이언트 배열 내 인덱스
+} client_t;
 
 
 extern client_t *clients[MAX_CLIENTS];
 extern pthread_mutex_t clients_mutex;
-extern int core_number;
 
-void handle_file_upload(int client_socket, const char *filename); // 파일 업로드 처리
-void handle_file_download(int client_socket, const char *filename); // 파일 다운로드 처리
-void broadcast_message(char *message, int sender_socket);          // 메시지 브로드캐스트
-void add_client(int fd, struct sockaddr_in client_addr);           // 클라이언트 추가
-void remove_client(int fd);                                         // 클라이언트 제거
-client_t* find_client_by_fd(int fd);  				   // fd 로 클라이언트 찾기 
+
 void start_server();
-void *handle_client(void *arg);
-
+void set_nonblocking(int fd);
+void websocket_handshake(int client_fd, const char *sec_websocket_key);
+size_t decode_websocket_frame(const char *frame, size_t length, char *decoded_message, size_t buffer_size);
+size_t encode_websocket_frame(const char *message, char *frame, size_t buffer_size);
+void websocket_broadcast(const char *message, int sender_socket);
+void add_client(int fd, struct sockaddr_in client_addr);
+void remove_client(int fd);
+client_t *find_client_by_fd(int fd);
+char *extract_websocket_key(const char *buffer);
+void base64_encode(const unsigned char *input, size_t length, char *output, size_t output_size);
 
 #endif
