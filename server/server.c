@@ -133,7 +133,7 @@ void start_server() {
                 int bytes_read;
                 while ((bytes_read = read(client_fd, buffer, sizeof(buffer))) > 0) {
                     buffer[bytes_read] = '\0'; // 문자열 종료 처리
-
+		    printf("Raw message recieved (length: %d) : %s\n", bytes_read, buffer);// 디버깅 출력
                     // WebSocket 핸드셰이크 처리
                     if (strstr(buffer, "Upgrade: websocket")) {
                         char *websocket_key = extract_websocket_key(buffer);
