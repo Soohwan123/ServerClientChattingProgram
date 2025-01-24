@@ -245,7 +245,7 @@ void websocket_broadcast(const char *message, int sender_socket) {
     printf("Mutex locked in websocket_broadcast\n");
 
     for (int i = 0; i < MAX_CLIENTS; i++) {
-        if (clients[i] && clients[i]->socket != sender_socket) {
+        if (clients[i]) {
             printf("Attempting to send to client at index %d, socket=%d\n", i, clients[i]->socket);
             
             char frame[BUFFER_SIZE];
