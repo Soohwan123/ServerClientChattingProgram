@@ -5,8 +5,8 @@
 #로컬로 테스트 하는법
 
 ## 웹서버 설치
-### sudo apt install -y nginx
-### sudo cp -r /root/ServerClientChattingProgram/client/* /var/www/html/
+sudo apt install -y nginx
+sudo cp -r /root/ServerClientChattingProgram/client/* /var/www/html/
 
 
 
@@ -19,5 +19,5 @@ docker-compose down --volumes < 현재 켜져있는 컨테이너 중지
 
 
 ## 접속법 
-### 터미널에 hostname -I
-### 나오는 IP 주소를 치면 나옵니다.
+터미널에 hostname -I
+나오는 IP 주소를 치면 나옵니다.
