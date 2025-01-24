@@ -27,13 +27,13 @@ document.getElementById('chat-input').addEventListener('keydown', (event) => {
     }
 });
 
-// WebSocket 메시지 수신
 socket.onmessage = (event) => {
-    const message = event.data; // 서버에서 받은 메시지
+    console.log("Message received from server:", event.data); // 디버깅용
+    const message = event.data; 
     const messageElement = document.createElement('div');
     messageElement.textContent = message;
     messagesDiv.appendChild(messageElement);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight; // 스크롤 아래로
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
 };
 
 // WebSocket 연결 상태 확인
