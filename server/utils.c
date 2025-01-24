@@ -93,7 +93,7 @@ void add_client(int fd, struct sockaddr_in client_addr) {
 	    if (send(fd, frame, frame_length, 0) == -1) {
                 perror("WebSocket send failed");
             } else {
-                printf("Sent to client %d: %s\n", clients[i]->socket, message);
+                printf("Sent to client %d: %s\n", clients[i]->socket, (char*)i);
             }
 		
             pthread_mutex_unlock(&clients_mutex);
