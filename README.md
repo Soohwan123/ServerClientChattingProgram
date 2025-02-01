@@ -21,3 +21,13 @@ docker-compose down --volumes < 현재 켜져있는 컨테이너 중지
 ## 접속법 
 터미널에 hostname -I
 나오는 IP 주소를 치면 나옵니다.
+
+
+## 업데이트
+v 2.0 
+TCP Nagle 알고리즘 비활성화 
+
+v 3.0 
+read() write() 대신 batch I/O 적용으로 서버 성능 개선 
+메모리 풀링 적용
+

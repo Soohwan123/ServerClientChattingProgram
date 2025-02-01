@@ -1,0 +1,4 @@
+1. websocket 로직 구조 분리 ( websocket.h websocket.c )
+2. 멀티스레딩 아키텍쳐 도입
+3. iouring 도입
+4. zero copy 도입

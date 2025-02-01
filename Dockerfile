@@ -20,7 +20,7 @@ COPY client/ /app/client
 
 # Step 5: Build the server
 WORKDIR /app/server
-RUN gcc -o server server.c -pthread -lssl -lcrypto
+RUN gcc -o server server.c -pthread -lssl -lcrypto -luring
 
 # Step 6: Expose ports
 EXPOSE 8080
