@@ -20,7 +20,8 @@ pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER; // 작업 큐 보호 �
 pthread_cond_t queue_cond = PTHREAD_COND_INITIALIZER;    // 작업 큐 조건 변수
 int epoll_fd;                                           // epoll 파일 디스크립터
 int task_count = 0;
-
+int rear = 0;
+int front = 0;
 
 int main()
 {
@@ -144,6 +145,10 @@ void start_server()
 
                 int flag = 1;
                 setsockopt(new_socket, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int)); // Nagle 알고리즘 비활성화
+                int optval = 1;
+                setsockopt(new_socket, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval)); // 포트 재사용으로 여러개 스레스가 동시에 accept 가능
+                int qlen = 5;
+                setsockopt(new_socket, IPPROTO_TCP, TCP_FASTOPEN, &qlen, sizeof(qlen)); // TCP Fast Open 활성화 클라이언트가 1-RTT 없이 즉시 데이터 전송
 
                 event.events = EPOLLIN; // 입력 이벤트 등록
                 event.data.fd = new_socket;
@@ -157,16 +162,13 @@ void start_server()
             else {
                 int client_fd = events[i].data.fd;
 
-                pthread_mutex_lock(&clients_mutex);
                 client_t *client = find_client_by_fd(client_fd);
                 if (!client) {
                     printf("Error: Client fd %d not found in clients array (likely removed)\n", client_fd);
                     epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL);
                     close(client_fd);
-                    pthread_mutex_unlock(&clients_mutex);
                     continue;
                 }
-                pthread_mutex_unlock(&clients_mutex);
 
                 char buffer[BUFFER_SIZE];
                 int bytes_read = read(client_fd, buffer, sizeof(buffer));
@@ -211,7 +213,7 @@ void *worker_thread(void *arg) {
                 decoded_message[decoded_length] = '\0';
                 websocket_broadcast(decoded_message, task.client_fd);
             }
-        } else {
+        } else { // wrk 테스트용
             if (strncmp(buffer, "GET / HTTP/1.1", 14) == 0) {
                 const char *response = "HTTP/1.1 200 OK\r\nContent-Length: 13\r\n\r\nConnection Clear!";
                 send(task.client_fd, response, strlen(response), 0);
@@ -224,8 +226,10 @@ void *worker_thread(void *arg) {
 void enqueue_task(int client_fd, const char *buffer, int bytes_read) {
     pthread_mutex_lock(&queue_mutex);
     if (task_count < TASK_QUEUE_SIZE) {
-        task_queue[task_count].client_fd = client_fd;
-        memcpy(task_queue[task_count].buffer, buffer, bytes_read);
+        task_queue[rear].client_fd = client_fd;
+        memcpy(task_queue[rear].buffer, buffer, bytes_read);
+        rear = (rear + 1) % TASK_QUEUE_SIZE;    //Circular queue
+
         task_queue[task_count].buffer[bytes_read] = '\0';
         task_queue[task_count].bytes_read = bytes_read;
         task_count++;
@@ -241,11 +245,10 @@ task_t dequeue_task()
     {
         pthread_cond_wait(&queue_cond, &queue_mutex);
     }
-    task_t task = task_queue[0];
-    for (int i = 1; i < task_count; i++)
-    {
-        task_queue[i - 1] = task_queue[i];
-    }
+    task_t task = task_queue[front];
+    memset(&task_queue[front], 0, sizeof(task_t));
+    front = (front + 1) % TASK_QUEUE_SIZE;
+
     task_count--;
     pthread_mutex_unlock(&queue_mutex);
     return task;
