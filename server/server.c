@@ -1,7 +1,7 @@
 #include "server.h"
-#include "utils.c"     // 유틸리티 함수 포함
-#include "websocket.c" // WebSocket 관련 함수 포함
+#include "websocket.h" // WebSocket 관련 함수 포함
 #include <errno.h>
+#include <asm-generic/socket.h>
 
 // 함수 선언
 void start_server();          // 서버 시작 함수
@@ -57,6 +57,14 @@ void start_server()
     if (server_socket < 0)
     {
         perror("Socket creation failed");
+        exit(EXIT_FAILURE);
+    }
+
+    // 포트 재사용 옵션 추가
+    int opt = 1;
+    if (setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
+        perror("setsockopt(SO_REUSEADDR) failed");
+        close(server_socket);
         exit(EXIT_FAILURE);
     }
 
@@ -145,10 +153,6 @@ void start_server()
 
                 int flag = 1;
                 setsockopt(new_socket, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int)); // Nagle 알고리즘 비활성화
-                int optval = 1;
-                setsockopt(new_socket, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval)); // 포트 재사용으로 여러개 스레스가 동시에 accept 가능
-                int qlen = 5;
-                setsockopt(new_socket, IPPROTO_TCP, TCP_FASTOPEN, &qlen, sizeof(qlen)); // TCP Fast Open 활성화 클라이언트가 1-RTT 없이 즉시 데이터 전송
 
                 event.events = EPOLLIN; // 입력 이벤트 등록
                 event.data.fd = new_socket;
@@ -172,16 +176,28 @@ void start_server()
 
                 char buffer[BUFFER_SIZE];
                 int bytes_read = read(client_fd, buffer, sizeof(buffer));
+                printf("Received message from client %d: %s\n", client_fd, buffer);
                 if (bytes_read > 0) {
                     buffer[bytes_read] = '\0';
-                    enqueue_task(client_fd, buffer, bytes_read);
-                } else if (bytes_read == 0) {
-                    printf("Client disconnected: %d\n", client_fd);
-                    remove_client(epoll_fd, client_fd);
+                    if (strncmp(buffer, "GET / HTTP/1.1", 14) == 0) {
+                        // WebSocket 핸드셰이크 처리
+                        const char *key = extract_websocket_key(buffer);
+
+                        if (key) {
+                            websocket_handshake(client_fd, key);
+                            client->is_websocket = 1;
+                        }
+                    } else {
+                        enqueue_task(client_fd, buffer, bytes_read); // 메시지 큐에 저장
+                    }
+                }else if (bytes_read == 0) {
+                    printf("Client %d disconnected\n", client_fd);
+                    remove_client(epoll_fd, client_fd); // 클라이언트 연결 끊음
                 } else if (errno != EAGAIN && errno != EWOULDBLOCK) {
                     perror("Read error");
-                    remove_client(epoll_fd, client_fd);
+                    remove_client(epoll_fd, client_fd); // 오류 발생 시 클라이언트 연결 끊음
                 }
+
             }
         }
     }
@@ -207,13 +223,21 @@ void *worker_thread(void *arg) {
         int bytes_read = task.bytes_read;
 
         if (client->is_websocket) {
-            char decoded_message[BUFFER_SIZE];
-            int decoded_length = decode_websocket_frame(buffer, bytes_read, decoded_message, sizeof(decoded_message));
-            if (decoded_length > 0) {
-                decoded_message[decoded_length] = '\0';
-                websocket_broadcast(decoded_message, task.client_fd);
+            size_t processed = 0;
+
+            while (processed < bytes_read) {
+                char decoded_message[BUFFER_SIZE];
+                size_t decoded_length = decode_websocket_frame(buffer + processed, bytes_read - processed, decoded_message, sizeof(decoded_message));
+
+                if (decoded_length > 0) {
+                    websocket_broadcast(decoded_message, task.client_fd);
+                    processed += decoded_length;  // 다음 프레임으로 이동
+                } else {
+                    // 불완전한 프레임이면 대기 (추가 데이터 수신 필요)
+                    break;
+                }
             }
-        } else { // wrk 테스트용
+        }else { // wrk 테스트용
             if (strncmp(buffer, "GET / HTTP/1.1", 14) == 0) {
                 const char *response = "HTTP/1.1 200 OK\r\nContent-Length: 13\r\n\r\nConnection Clear!";
                 send(task.client_fd, response, strlen(response), 0);
@@ -226,12 +250,14 @@ void *worker_thread(void *arg) {
 void enqueue_task(int client_fd, const char *buffer, int bytes_read) {
     pthread_mutex_lock(&queue_mutex);
     if (task_count < TASK_QUEUE_SIZE) {
+        memset(&task_queue[rear], 0, sizeof(task_t));
+
         task_queue[rear].client_fd = client_fd;
         memcpy(task_queue[rear].buffer, buffer, bytes_read);
-        rear = (rear + 1) % TASK_QUEUE_SIZE;    //Circular queue
+        task_queue[rear].buffer[bytes_read] = '\0';
+        task_queue[rear].bytes_read = bytes_read;
 
-        task_queue[task_count].buffer[bytes_read] = '\0';
-        task_queue[task_count].bytes_read = bytes_read;
+        rear = (rear + 1) % TASK_QUEUE_SIZE;    //Circular queue
         task_count++;
         pthread_cond_signal(&queue_cond);
     }
@@ -246,7 +272,6 @@ task_t dequeue_task()
         pthread_cond_wait(&queue_cond, &queue_mutex);
     }
     task_t task = task_queue[front];
-    memset(&task_queue[front], 0, sizeof(task_t));
     front = (front + 1) % TASK_QUEUE_SIZE;
 
     task_count--;

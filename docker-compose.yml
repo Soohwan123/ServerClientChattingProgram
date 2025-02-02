@@ -1,27 +1,19 @@
-version: '3.9'
+version: '3'
 
 services:
   server:
     build:
-      context: ./server
+      context: .
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
-    command: ./server
-    volumes:
-      - ./server:/app
-    networks:
-      - app_network
+    restart: always
 
-  web:
-    image: nginx:latest
+  client:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
     ports:
-      - "80:80"
-    volumes:
-      - ./client:/usr/share/nginx/html
-    networks:
-      - app_network
+      - "3000:80"
+    restart: always
 
-networks:
-  app_network:
-    driver: bridge

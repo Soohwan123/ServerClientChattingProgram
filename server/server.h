@@ -22,17 +22,12 @@
 
 
 #define PORT 8080
-#define BUFFER_SIZE 1024
 #define FILE_BUFFER_SIZE 4096
-#define MAX_CLIENTS 500
-#define MAX_EVENTS 10000
-
-#define PORT 8080
 #define BUFFER_SIZE 1024
 #define MAX_CLIENTS 500
 #define MAX_EVENTS 10000
 #define THREAD_POOL_SIZE 4 // Worker 스레드 개수
-#define TASK_QUEUE_SIZE 100  // 작업 큐 크기
+#define TASK_QUEUE_SIZE 1000  // 작업 큐 크기
 
 #define MAGIC_STRING "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 

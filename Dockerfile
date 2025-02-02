@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y \
     make \
     openssl \
     libssl-dev \
+    liburing-dev \
     curl \
     net-tools \
     && apt-get clean
@@ -20,10 +21,11 @@ COPY client/ /app/client
 
 # Step 5: Build the server
 WORKDIR /app/server
-RUN gcc -o server server.c -pthread -lssl -lcrypto -luring
+RUN gcc -o server server.c utils.c websocket.c -pthread -lssl -lcrypto -luring
 
-# Step 6: Expose ports
+# Step 6: Expose the server port
 EXPOSE 8080
 
 # Step 7: Run the server
 CMD ["./server"]
+

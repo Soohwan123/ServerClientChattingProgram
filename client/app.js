@@ -1,5 +1,5 @@
 // WebSocket 연결
-const socket = new WebSocket('ws://localhost:8080'); // 서버 주소
+const socket = new WebSocket('ws://localhost:8080');// 서버 주소
 
 // DOM 요소
 const messagesDiv = document.getElementById('messages');
@@ -9,9 +9,11 @@ const sendButton = document.getElementById('send-button');
 // 메시지 전송
 sendButton.addEventListener('click', () => {
     const message = chatInput.value.trim();
-    if (message) {
+    if (message && socket.readyState === WebSocket.OPEN) {  // 연결 상태 체크
         socket.send(message); // 서버로 메시지 전송
         chatInput.value = ''; // 입력창 초기화
+    } else {
+        console.error("WebSocket is not open. Cannot send message.");
     }
 });
 
@@ -43,6 +45,9 @@ socket.onopen = () => {
 
 socket.onerror = (error) => {
     console.error('WebSocket error:', error);
+
+    console.log('WebSocket readyState:', socket.readyState);
+    console.log('WebSocket URL:', socket.url);
 };
 
 socket.onclose = () => {

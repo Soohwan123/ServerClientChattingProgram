@@ -13,17 +13,56 @@ void websocket_handshake(int client_fd, const char *sec_websocket_key) {
 
     char response[512];
     snprintf(response, sizeof(response),
-             "HTTP/1.1 101 Switching Protocols\r\n"
-             "Upgrade: websocket\r\n"
-             "Connection: Upgrade\r\n"
-             "Sec-WebSocket-Accept: %s\r\n\r\n",
-             accept_key);
+        "HTTP/1.1 101 Switching Protocols\r\n"
+        "Upgrade: websocket\r\n"
+        "Connection: Upgrade\r\n"
+        "Sec-WebSocket-Accept: %s\r\n"
+        "\r\n",
+        accept_key
+    );
 
-    send(client_fd, response, strlen(response), 0);
+    if(send(client_fd, response, strlen(response), 0) == -1) {
+	    perror("Handshake send failed");
+    }
     printf("WebSocket handshake completed with client %d\n", client_fd);
 }
 
 // WebSocket 프레임 디코딩
+// size_t decode_websocket_frame(const char *frame, size_t length, char *decoded_message, size_t buffer_size) {
+//     if (length < 2) return 0;
+
+//     size_t payload_length = frame[1] & 0x7F;
+//     size_t offset = 2;
+
+//     if (payload_length == 126) {
+//         if (length < 4) return 0;
+//         payload_length = (frame[2] << 8) | frame[3];
+//         offset += 2;
+//     } else if (payload_length == 127) {
+//         return 0;  // 너무 큰 페이로드는 지원하지 않음
+//     }
+
+//     if (length < offset + 4) return 0;
+
+//     const uint8_t *masking_key = (uint8_t *)&frame[offset];
+//     offset += 4;
+
+//     if (length < offset + payload_length) return 0;  // 전체 프레임이 도착했는지 확인
+
+//     const uint8_t *payload = (uint8_t *)&frame[offset];
+
+//     if (payload_length > buffer_size - 1) return 0;  // 버퍼 오버플로 방지
+
+//     for (size_t i = 0; i < payload_length; i++) {
+//         decoded_message[i] = payload[i] ^ masking_key[i % 4];
+//     }
+//     decoded_message[payload_length] = '\0';
+//     printf("Payload length: %zu\n", payload_length);
+//     printf("Masking key: %02X %02X %02X %02X\n", masking_key[0], masking_key[1], masking_key[2], masking_key[3]);
+
+//     return offset + payload_length;  // 처리한 총 바이트 수 반환
+// }
+
 size_t decode_websocket_frame(const char *frame, size_t length, char *decoded_message, size_t buffer_size) {
     if (length < 2) return 0; // 최소 길이 확인
 
@@ -56,27 +95,47 @@ size_t decode_websocket_frame(const char *frame, size_t length, char *decoded_me
     }
     decoded_message[payload_length] = '\0';
 
-    return payload_length;
+    return payload_length;// 처리한 총 바이트 수 반환
 }
 
 // WebSocket 프레임 인코딩
 size_t encode_websocket_frame(const char *message, char *frame, size_t buffer_size) {
     size_t message_length = strlen(message);
-    if (message_length > buffer_size - 2) return 0;
+    if (message_length > buffer_size - 10) return 0;  // 버퍼 오버플로 방지
 
-    frame[0] = 0x81;    //FIN 플래그 + 텍스트 프레임 (opcode 0x1)
-    frame[1] = message_length;
-    memcpy(&frame[2], message, message_length); //실제 메모리 복사
+    frame[0] = 0x81;  // FIN + 텍스트 프레임 (opcode = 0x1)
+    size_t offset = 2;
 
-    return message_length + 2;
+    // 메시지 길이에 따른 처리
+    if (message_length <= 125) {
+        frame[1] = message_length;
+    } else if (message_length <= 65535) {
+        frame[1] = 126;
+        frame[2] = (message_length >> 8) & 0xFF;
+        frame[3] = message_length & 0xFF;
+        offset += 2;
+    } else {
+        frame[1] = 127;
+        // 64비트 길이 지원 (여기선 단순화를 위해 0으로 처리)
+        memset(&frame[2], 0, 6);
+        frame[8] = (message_length >> 8) & 0xFF;
+        frame[9] = message_length & 0xFF;
+        offset += 8;
+    }
+
+    // 데이터 복사 (마스킹 없음)
+    memcpy(&frame[offset], message, message_length);
+
+    return offset + message_length;
 }
+
 
 // WebSocket 메시지 브로드캐스트
 void websocket_broadcast(const char *message, int sender_socket) {
     pthread_mutex_lock(&clients_mutex);
 
     for (int i = 0; i < MAX_CLIENTS; i++) {
-        if (clients[i] && clients[i]->socket != sender_socket) {
+        if (clients[i]) {
             char frame[BUFFER_SIZE];
             size_t frame_length = encode_websocket_frame(message, frame, sizeof(frame));
             if (frame_length > 0) {
